@@ -30,6 +30,9 @@ pref("extensions.logging.enabled", false);
 // Disables strict compatibility, making addons compatible-by-default.
 pref("extensions.strictCompatibility", false);
 
+// Disable compatibility checking due to mish-mash of versions.
+pref("extensions.checkCompatibility.56.2", false);
+
 // Specifies a minimum maxVersion an addon needs to say it's compatible with
 // for it to be compatible by default.
 pref("extensions.minCompatibleAppVersion", "4.0");
@@ -42,13 +45,14 @@ pref("extensions.webextPermissionPrompts", true);
 pref("extensions.webextOptionalPermissionPrompts", true);
 
 // Preferences for AMO integration
-sticky_pref("extensions.getAddons.cache.enabled", false);
+sticky_pref("extensions.getAddons.cache.enabled", true);
+pref("extensions.getAddons.showPane", false);
 pref("extensions.getAddons.maxResults", 15);
 pref("extensions.getAddons.get.url", "https://services.addons.mozilla.org/%LOCALE%/firefox/api/%API_VERSION%/search/guid:%IDS%?src=firefox&appOS=%OS%&appVersion=%VERSION%");
-pref("extensions.getAddons.getWithPerformance.url", "https://services.addons.mozilla.org/%LOCALE%/firefox/api/%API_VERSION%/search/guid:%IDS%?src=firefox&appOS=%OS%&appVersion=%VERSION%&tMain=%TIME_MAIN%&tFirstPaint=%TIME_FIRST_PAINT%&tSessionRestored=%TIME_SESSION_RESTORED%");
+pref("extensions.getAddons.getWithPerformance.url", "");
 pref("extensions.getAddons.search.browseURL", "https://addons.mozilla.org/%LOCALE%/firefox/search?q=%TERMS%&platform=%OS%&appver=%VERSION%");
 pref("extensions.getAddons.search.url", "https://services.addons.mozilla.org/%LOCALE%/firefox/api/%API_VERSION%/search/%TERMS%/all/%MAX_RESULTS%/%OS%/%VERSION%/%COMPATIBILITY_MODE%?src=firefox");
-pref("extensions.webservice.discoverURL", "https://discovery.addons.mozilla.org/%LOCALE%/firefox/discovery/pane/%VERSION%/%OS%/%COMPATIBILITY_MODE%");
+pref("extensions.webservice.discoverURL", "");
 pref("extensions.getAddons.recommended.url", "https://services.addons.mozilla.org/%LOCALE%/%APP%/api/%API_VERSION%/list/recommended/all/%MAX_RESULTS%/%OS%/%VERSION%?src=firefox");
 pref("extensions.getAddons.link.url", "https://addons.mozilla.org/%LOCALE%/firefox/");
 pref("extensions.getAddons.themes.browseURL", "https://addons.mozilla.org/%LOCALE%/firefox/themes/?src=firefox");
@@ -297,6 +301,9 @@ pref("browser.urlbar.doubleClickSelectsAll", true);
 pref("browser.urlbar.doubleClickSelectsAll", false);
 #endif
 
+// Allow dropping text directly in urlbar and loading
+pref("browser.urlbar.dragDropLoad", false);
+
 // Control autoFill behavior
 pref("browser.urlbar.autoFill", true);
 pref("browser.urlbar.autoFill.typed", true);
@@ -393,7 +400,7 @@ pref("browser.search.geoSpecificDefaults.url", "");
 // US specific default (used as a fallback if the geoSpecificDefaults request fails).
 pref("browser.search.defaultenginename.US",      "data:text/plain,browser.search.defaultenginename.US=Bing");
 pref("browser.search.order.US.1",                "data:text/plain,browser.search.order.US.1=Bing");
-pref("browser.search.order.US.2",                "data:text/plain,browser.search.order.US.2=Ecosia");
+pref("browser.search.order.US.2",                "data:text/plain,browser.search.order.US.2=Qwant");
 pref("browser.search.order.US.3",                "data:text/plain,browser.search.order.US.3=DuckDuckGo");
 
 // search bar results always open in a new tab
@@ -1262,7 +1269,7 @@ pref("browser.newtabpage.introShown", false);
 pref("browser.newtabpage.enabled", true);
 
 // Toggles the directory tiles content of 'about:newtab'.
-pref("browser.newtabpage.enhanced", true);
+pref("browser.newtabpage.enhanced", false);
 
 // enables Activity Stream inspired layout
 pref("browser.newtabpage.compact", false);
@@ -1277,7 +1284,7 @@ pref("browser.newtabpage.rows", 3);
 pref("browser.newtabpage.columns", 5);
 
 // directory tiles download URL
-sticky_pref("browser.newtabpage.directory.source", "");
+sticky_pref("browser.newtabpage.directory.source", "data:application/json,{}");
 
 // activates Activity Stream
 #ifdef NIGHTLY_BUILD
@@ -1318,11 +1325,6 @@ pref("image.mem.max_decoded_image_kb", 256000);
 
 // Is the sidebar positioned ahead of the content browser
 pref("sidebar.position_start", true);
-
-// Activation from inside of share panel is possible if activationPanelEnabled
-// is true. Pref'd off for release while usage testing is done through beta.
-pref("social.share.activationPanelEnabled", false);
-pref("social.shareDirectory", "");
 
 // Block insecure active content on https pages
 pref("security.mixed_content.block_active_content", true);
@@ -1411,7 +1413,7 @@ pref("identity.sync.tokenserver.uri", "https://token.services.mozilla.com/1.0/sy
 
 // URLs for promo links to mobile browsers. Note that consumers are expected to
 // append a value for utm_campaign.
-pref("identity.mobilepromo.android", "https://www.mozilla.org/firefox/android/?utm_source=firefox-browser&utm_medium=firefox-browser&utm_campaign=");
+pref("identity.mobilepromo.android", "https://play.google.com/store/apps/details?id=org.waterfoxproject.waterfox&utm_source=waterfox-browser&utm_medium=waterfox-browser&utm_campaign=");
 pref("identity.mobilepromo.ios", "https://www.mozilla.org/firefox/ios/?utm_source=firefox-browser&utm_medium=firefox-browser&utm_campaign=");
 
 // Migrate any existing Firefox Account data from the default profile to the
@@ -1538,7 +1540,7 @@ pref("browser.tabs.remote.autostart.2", true);
 #endif
 
 // For the about:tabcrashed page
-pref("browser.tabs.crashReporting.sendReport", true);
+pref("browser.tabs.crashReporting.sendReport", false);
 pref("browser.tabs.crashReporting.includeURL", false);
 pref("browser.tabs.crashReporting.requestEmail", false);
 pref("browser.tabs.crashReporting.emailMe", false);
@@ -1631,8 +1633,6 @@ pref("browser.migrate.chrome.history.maxAgeInDays", 180);
 // Enable browser frames for use on desktop.  Only exposed to chrome callers.
 pref("dom.mozBrowserFramesEnabled", true);
 
-pref("extensions.pocket.enabled", true);
-
 pref("signon.schemeUpgrades", true);
 
 // "Simplify Page" feature in Print Preview. This feature is disabled by default
@@ -1690,7 +1690,7 @@ pref("browser.sessionstore.restore_tabs_lazily", true);
 pref("browser.suppress_first_window_animation", true);
 
 // Preferences for Photon onboarding system extension
-pref("browser.onboarding.enabled", true);
+sticky_pref("browser.onboarding.enabled", false);
 // Mark this as an upgraded profile so we don't offer the initial new user onboarding tour.
 pref("browser.onboarding.tourset-version", 1);
 pref("browser.onboarding.hidden", false);

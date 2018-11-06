@@ -1324,8 +1324,8 @@ nsIDocument::nsIDocument()
     mHasHadScriptHandlingObject(false),
     mIsBeingUsedAsImage(false),
     mIsSyntheticDocument(false),
-    mHasLinksToUpdate(false),
     mHasLinksToUpdateRunnable(false),
+    mFlushingPendingLinkUpdates(false),
     mMayHaveDOMMutationObservers(false),
     mMayHaveAnimationObservers(false),
     mHasMixedActiveContentLoaded(false),
@@ -1367,9 +1367,6 @@ nsIDocument::nsIDocument()
     mType(eUnknown),
     mDefaultElementType(0),
     mAllowXULXBL(eTriUnset),
-#ifdef DEBUG
-    mIsLinkUpdateRegistrationsForbidden(false),
-#endif
     mBidiOptions(IBMBIDI_DEFAULT_BIDI_OPTIONS),
     mSandboxFlags(0),
     mPartID(0),
@@ -2692,6 +2689,13 @@ nsDocument::InitCSP(nsIChannel* aChannel)
     return NS_OK;
   }
 
+  // In case this channel was instrument to discard the CSP, then
+  // there is nothing for us to do here.
+  nsCOMPtr<nsILoadInfo> loadInfo = aChannel->GetLoadInfo();
+  if (loadInfo->GetAllowDocumentToBeAgnosticToCSP()) {
+    return NS_OK;
+  }
+
   nsAutoCString tCspHeaderValue, tCspROHeaderValue;
 
   nsCOMPtr<nsIHttpChannel> httpChannel;
@@ -2720,7 +2724,6 @@ nsDocument::InitCSP(nsIChannel* aChannel)
 
   // Check if this is a signed content to apply default CSP.
   bool applySignedContentCSP = false;
-  nsCOMPtr<nsILoadInfo> loadInfo = aChannel->GetLoadInfo();
   if (loadInfo && loadInfo->GetVerifySignedContent()) {
     applySignedContentCSP = true;
   }
@@ -10025,15 +10028,13 @@ nsIDocument::EnumerateActivityObservers(ActivityObserverEnumerator aEnumerator,
 void
 nsIDocument::RegisterPendingLinkUpdate(Link* aLink)
 {
-  MOZ_ASSERT(!mIsLinkUpdateRegistrationsForbidden);
-
   if (aLink->HasPendingLinkUpdate()) {
     return;
   }
 
   aLink->SetHasPendingLinkUpdate();
 
-  if (!mHasLinksToUpdateRunnable) {
+  if (!mHasLinksToUpdateRunnable && !mFlushingPendingLinkUpdates) {
     nsCOMPtr<nsIRunnable> event =
       NewRunnableMethod("nsIDocument::FlushPendingLinkUpdatesFromRunnable",
                         this,
@@ -10050,7 +10051,6 @@ nsIDocument::RegisterPendingLinkUpdate(Link* aLink)
   }
 
   mLinksToUpdate.InfallibleAppend(aLink);
-  mHasLinksToUpdate = true;
 }
 
 void
@@ -10064,26 +10064,26 @@ nsIDocument::FlushPendingLinkUpdatesFromRunnable()
 void
 nsIDocument::FlushPendingLinkUpdates()
 {
-  MOZ_ASSERT(!mIsLinkUpdateRegistrationsForbidden);
-  if (!mHasLinksToUpdate)
+  if (mFlushingPendingLinkUpdates) {
     return;
+  }
 
-#ifdef DEBUG
-  AutoRestore<bool> saved(mIsLinkUpdateRegistrationsForbidden);
-  mIsLinkUpdateRegistrationsForbidden = true;
-#endif
-  for (auto iter = mLinksToUpdate.Iter(); !iter.Done(); iter.Next()) {
-    Link* link = iter.Get();
-    Element* element = link->GetElement();
-    if (element->OwnerDoc() == this) {
-      link->ClearHasPendingLinkUpdate();
-      if (element->IsInComposedDoc()) {
-        element->UpdateLinkState(link->LinkState());
+  auto restore = MakeScopeExit([&] { mFlushingPendingLinkUpdates = false; });
+  mFlushingPendingLinkUpdates = true;
+
+  while (!mLinksToUpdate.IsEmpty()) {
+    LinksToUpdateList links(Move(mLinksToUpdate));
+    for (auto iter = links.Iter(); !iter.Done(); iter.Next()) {
+      Link* link = iter.Get();
+      Element* element = link->GetElement();
+      if (element->OwnerDoc() == this) {
+        link->ClearHasPendingLinkUpdate();
+        if (element->IsInComposedDoc()) {
+          element->UpdateLinkState(link->LinkState());
+        }
       }
     }
   }
-  mLinksToUpdate.Clear();
-  mHasLinksToUpdate = false;
 }
 
 already_AddRefed<nsIDocument>

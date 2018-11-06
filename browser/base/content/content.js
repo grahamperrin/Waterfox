@@ -839,38 +839,6 @@ var PageMetadataMessenger = {
 }
 PageMetadataMessenger.init();
 
-addEventListener("ActivateSocialFeature", function(aEvent) {
-  let document = content.document;
-  let dwu = content.QueryInterface(Ci.nsIInterfaceRequestor)
-                   .getInterface(Ci.nsIDOMWindowUtils);
-  if (!dwu.isHandlingUserInput) {
-    Cu.reportError("attempt to activate provider without user input from " + document.nodePrincipal.origin);
-    return;
-  }
-
-  let node = aEvent.target;
-  let ownerDocument = node.ownerDocument;
-  let data = node.getAttribute("data-service");
-  if (data) {
-    try {
-      data = JSON.parse(data);
-    } catch (e) {
-      Cu.reportError("Social Service manifest parse error: " + e);
-      return;
-    }
-  } else {
-    Cu.reportError("Social Service manifest not available");
-    return;
-  }
-
-  sendAsyncMessage("Social:Activation", {
-    url: ownerDocument.location.href,
-    origin: ownerDocument.nodePrincipal.origin,
-    manifest: data,
-    triggeringPrincipal: Utils.serializePrincipal(ownerDocument.nodePrincipal),
-  });
-}, true, true);
-
 addMessageListener("ContextMenu:SaveVideoFrameAsImage", (message) => {
   let video = message.objects.target;
   let canvas = content.document.createElementNS("http://www.w3.org/1999/xhtml", "canvas");
@@ -1036,6 +1004,7 @@ var LightWeightThemeWebInstallListener = {
       case "InstallBrowserTheme": {
         sendAsyncMessage("LightWeightThemeWebInstaller:Install", {
           baseURI: event.target.baseURI,
+          principal: event.target.nodePrincipal,
           themeData: event.target.getAttribute("data-browsertheme"),
         });
         break;
@@ -1043,6 +1012,7 @@ var LightWeightThemeWebInstallListener = {
       case "PreviewBrowserTheme": {
         sendAsyncMessage("LightWeightThemeWebInstaller:Preview", {
           baseURI: event.target.baseURI,
+          principal: event.target.nodePrincipal,
           themeData: event.target.getAttribute("data-browsertheme"),
         });
         this._previewWindow = event.target.ownerGlobal;
@@ -1057,7 +1027,7 @@ var LightWeightThemeWebInstallListener = {
       case "ResetBrowserThemePreview": {
         if (this._previewWindow) {
           sendAsyncMessage("LightWeightThemeWebInstaller:ResetPreview",
-                           {baseURI: event.target.baseURI});
+                           {principal: event.target.nodePrincipal});
           this._resetPreviewWindow();
         }
         break;

@@ -1606,9 +1606,9 @@ TabParent::RecvAsyncMessage(const nsString& aMessage,
 }
 
 mozilla::ipc::IPCResult
-TabParent::RecvSetCursor(const uint32_t& aCursor, const bool& aForce)
+TabParent::RecvSetCursor(const nsCursor& aCursor, const bool& aForce)
 {
-  mCursor = static_cast<nsCursor>(aCursor);
+  mCursor = aCursor;
   mCustomCursor = nullptr;
 
   nsCOMPtr<nsIWidget> widget = GetWidget();
@@ -2301,6 +2301,17 @@ TabParent::RecvSetCandidateWindowForPlugin(
   }
 
   widget->SetCandidateWindowForPlugin(aPosition);
+  return IPC_OK();
+}
+
+ mozilla::ipc::IPCResult
+TabParent::RecvEnableIMEForPlugin(const bool& aEnable)
+{
+  nsCOMPtr<nsIWidget> widget = GetWidget();
+  if (!widget) {
+    return IPC_OK();
+  }
+  widget->EnableIMEForPlugin(aEnable);
   return IPC_OK();
 }
 
@@ -3210,7 +3221,7 @@ TabParent::AddInitialDnDDataTo(DataTransfer* aDataTransfer)
           variant->SetAsISupports(imageContainer);
         } else {
           Shmem data = item.data().get_Shmem();
-          variant->SetAsACString(nsDependentCString(data.get<char>(), data.Size<char>()));
+          variant->SetAsACString(nsDependentCSubstring(data.get<char>(), data.Size<char>()));
         }
 
         mozilla::Unused << DeallocShmem(item.data().get_Shmem());

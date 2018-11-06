@@ -36,7 +36,7 @@ XPCOMUtils.defineLazyPreferenceGetter(this, "gPhotonStructure",
           ReaderParent:false, RecentWindow:false, SafeBrowsing: false,
           SessionStore:false,
           ShortcutUtils:false, SimpleServiceDiscovery:false, SitePermissions:false,
-          Social:false, TabCrashHandler:false, TelemetryStopwatch:false,
+          TabCrashHandler:false, TelemetryStopwatch:false,
           Translation:false, UITour:false, Utils:false, UpdateUtils:false,
           Weave:false,
           WebNavigationFrames: false, fxAccounts:false, gDevTools:false,
@@ -81,7 +81,6 @@ XPCOMUtils.defineLazyPreferenceGetter(this, "gPhotonStructure",
   ["ShortcutUtils", "resource://gre/modules/ShortcutUtils.jsm"],
   ["SimpleServiceDiscovery", "resource://gre/modules/SimpleServiceDiscovery.jsm"],
   ["SitePermissions", "resource:///modules/SitePermissions.jsm"],
-  ["Social", "resource:///modules/Social.jsm"],
   ["TabCrashHandler", "resource:///modules/ContentCrashHandlers.jsm"],
   ["TelemetryStopwatch", "resource://gre/modules/TelemetryStopwatch.jsm"],
   ["Translation", "resource:///modules/translation/Translation.jsm"],
@@ -125,10 +124,6 @@ XPCOMUtils.defineLazyScriptGetter(this, ["gGestureSupport", "gHistorySwipeAnimat
                                   "chrome://browser/content/browser-gestureSupport.js");
 XPCOMUtils.defineLazyScriptGetter(this, "gSafeBrowsing",
                                   "chrome://browser/content/browser-safebrowsing.js");
-XPCOMUtils.defineLazyScriptGetter(this, ["SocialUI",
-                                         "SocialShare",
-                                         "SocialActivationListener"],
-                                  "chrome://browser/content/browser-social.js");
 XPCOMUtils.defineLazyScriptGetter(this, "gSync",
                                   "chrome://browser/content/browser-sync.js");
 XPCOMUtils.defineLazyScriptGetter(this, "gBrowserThumbnails",
@@ -1741,7 +1736,6 @@ var gBrowserInit = {
       RestoreLastSessionObserver.init();
 
       SidebarUI.startDelayedLoad();
-      SocialUI.init();
 
       // Telemetry for master-password - we do this after 5 seconds as it
       // can cause IO if NSS/PSM has not already initialized.
@@ -1867,7 +1861,6 @@ var gBrowserInit = {
 
       gPrefService.removeObserver(ctrlTab.prefName, ctrlTab);
       ctrlTab.uninit();
-      SocialUI.uninit();
       gBrowserThumbnails.uninit();
       FullZoom.destroy();
 
@@ -3624,6 +3617,12 @@ var browserDragAndDrop = {
     return Services.droppedLinkHandler.getTriggeringPrincipal(aEvent);
   },
 
+  validateURIsForDrop(aEvent, aURIsCount, aURIs) {
+    return Services.droppedLinkHandler.validateURIsForDrop(aEvent,
+                                                           aURIsCount,
+                                                           aURIs);
+  },
+
   dropLinks(aEvent, aDisallowInherit) {
     return Services.droppedLinkHandler.dropLinks(aEvent, aDisallowInherit);
   }
@@ -3634,7 +3633,22 @@ var homeButtonObserver = {
       // disallow setting home pages that inherit the principal
       let links = browserDragAndDrop.dropLinks(aEvent, true);
       if (links.length) {
-        setTimeout(openHomeDialog, 0, links.map(link => link.url).join("|"));
+        let urls = [];
+        for (let link of links) {
+          if (link.url.includes("|")) {
+            urls.push(...link.url.split("|"));
+          } else {
+            urls.push(link.url);
+          }
+        }
+
+        try {
+          browserDragAndDrop.validateURIsForDrop(aEvent, urls.length, urls);
+        } catch (e) {
+          return;
+        }
+
+        setTimeout(openHomeDialog, 0, urls.join("|"));
       }
     },
 
@@ -4497,9 +4511,7 @@ var XULBrowserWindow = {
 
   // Called before links are navigated to to allow us to retarget them if needed.
   onBeforeLinkTraversal(originalTarget, linkURI, linkNode, isAppTab) {
-    let target = BrowserUtils.onBeforeLinkTraversal(originalTarget, linkURI, linkNode, isAppTab);
-    SocialUI.closeSocialPanelForLinkTraversal(target, linkNode);
-    return target;
+    return BrowserUtils.onBeforeLinkTraversal(originalTarget, linkURI, linkNode, isAppTab);
   },
 
   // Check whether this URI should load in the current process
@@ -4680,8 +4692,6 @@ var XULBrowserWindow = {
       BookmarkingUI.onLocationChange();
 
       gIdentityHandler.onLocationChange();
-
-      SocialUI.updateState();
 
       gTabletModePageCounter.inc();
 
@@ -6025,14 +6035,18 @@ function middleMousePaste(event) {
 function stripUnsafeProtocolOnPaste(pasteData) {
   // Don't allow pasting javascript URIs since we don't support
   // LOAD_FLAGS_DISALLOW_INHERIT_PRINCIPAL for those.
-  let changed = false;
-  let pasteDataNoJS = pasteData.replace(/\r?\n/g, "")
-                               .replace(/^(?:\W*javascript:)+/i,
-                                        () => {
-                                                changed = true;
-                                                return "";
-                                              });
-  return changed ? pasteDataNoJS : pasteData;
+  while (true) {
+    let scheme = "";
+    try {
+      scheme = Services.io.extractScheme(pasteData);
+    } catch (ex) { }
+    if (scheme != "javascript") {
+      break;
+    }
+
+    pasteData = pasteData.substring(pasteData.indexOf(":") + 1);
+  }
+  return pasteData;
 }
 
 // handleDroppedLink has the following 2 overloads:

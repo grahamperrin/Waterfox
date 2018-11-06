@@ -23,22 +23,19 @@ pref("preferences.allow.omt-write", false);
 
 pref("keyword.enabled", false);
 pref("general.useragent.locale", "chrome://global/locale/intl.properties");
-pref("general.useragent.compatMode.firefox", true);
+pref("general.useragent.compatMode.firefox", false);
 
 // This pref exists only for testing purposes. In order to disable all
 // overrides by default, don't initialize UserAgentOverrides.jsm.
 pref("general.useragent.site_specific_overrides", true);
 #ifdef XP_WIN
-pref("general.useragent.override.americanexpress.com", "Mozilla/5.0 (Windows NT 10.0; WOW64; rv:56.0) Gecko/20100101 Firefox/56.0");
-pref("general.useragent.override.chase.com", "Mozilla/5.0 (Windows NT 10.0; WOW64; rv:56.0) Gecko/20100101 Firefox/56.0");
-pref("general.useragent.override.discordapp.com", "Mozilla/5.0 (Windows NT 10.0; WOW64; rv:56.0) Gecko/20100101 Firefox/56.0");
-pref("general.useragent.override.slack.com", "Mozilla/5.0 (Windows NT 10.0; WOW64; rv:56.0) Gecko/20100101 Firefox/56.0");
+pref("general.useragent.override.addons.mozilla.org", "Mozilla/5.0 (Windows NT 10.0; Win64; rv:57.0) Gecko/20100101 Firefox/57.0");
 #endif
 #ifdef XP_MACOSX
-pref("general.useragent.override.americanexpress.com", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.12; rv:56.0) Gecko/20100101 Firefox/56.0");
-pref("general.useragent.override.chase.com", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.12; rv:56.0) Gecko/20100101 Firefox/56.0");
-pref("general.useragent.override.discordapp.com", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.12; rv:56.0) Gecko/20100101 Firefox/56.0");
-pref("general.useragent.override.slack.com", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.12; rv:56.0) Gecko/20100101 Firefox/56.0");
+pref("general.useragent.override.addons.mozilla.org", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.13; rv:57.0) Gecko/20100101 Firefox/57.0");
+#endif
+#ifdef XP_LINUX
+pref("general.useragent.override.addons.mozilla.org", "Mozilla/5.0 (X11; Linux x86_64; rv:57.0) Gecko/20100101 Firefox/57.0");
 #endif
 
 pref("general.config.obscure_value", 13); // for MCD .cfg files
@@ -647,7 +644,7 @@ pref("media.video-queue.default-size", 10);
 pref("media.video-queue.send-to-compositor-size", 9999);
 
 // Whether to disable the video stats to prevent fingerprinting
-pref("media.video_stats.enabled", true);
+sticky_pref("media.video_stats.enabled", false);
 
 // Whether to check the decoder supports recycling.
 pref("media.decoder.recycle.enabled", false);
@@ -1035,7 +1032,7 @@ sticky_pref("toolkit.telemetry.infoURL", "");
 // i.e. dynamically constructed SQL strings or SQL executed by addons against addon DBs
 pref("toolkit.telemetry.debugSlowSql", false);
 // Whether to use the unified telemetry behavior, requires a restart.
-pref("toolkit.telemetry.unified", true);
+sticky_pref("toolkit.telemetry.unified", false);
 // AsyncShutdown delay before crashing in case of shutdown freeze
 pref("toolkit.asyncshutdown.crash_timeout", 60000);
 // Extra logging for AsyncShutdown barriers and phases
@@ -1331,11 +1328,7 @@ pref("dom.forms.number", true);
 pref("dom.forms.color", true);
 
 // Support for input type=date and type=time. Enabled by default on Nightly.
-#ifdef NIGHTLY_BUILD
 pref("dom.forms.datetime", true);
-#else
-pref("dom.forms.datetime", false);
-#endif
 
 // Support for input type=month, type=week and type=datetime-local. By default,
 // disabled.
@@ -1868,7 +1861,7 @@ pref("network.jar.block-remote-files", true);
 // This preference, if true, causes all UTF-8 domain names to be normalized to
 // punycode.  The intention is to allow UTF-8 domain names as input, but never
 // generate them from punycode.
-pref("network.IDN_show_punycode", false);
+pref("network.IDN_show_punycode", true);
 
 // If "network.IDN.use_whitelist" is set to true, TLDs with
 // "network.IDN.whitelist.tld" explicitly set to true are treated as
@@ -3242,8 +3235,8 @@ pref("dom.ipc.tabs.shutdownTimeoutSecs", 0);
 
 pref("dom.ipc.plugins.flash.disable-protected-mode", false);
 
-pref("dom.ipc.plugins.flash.subprocess.crashreporter.enabled", true);
-pref("dom.ipc.plugins.reportCrashURL", true);
+pref("dom.ipc.plugins.flash.subprocess.crashreporter.enabled", false);
+pref("dom.ipc.plugins.reportCrashURL", false);
 
 // How long we wait before unloading an idle plugin process.
 // Defaults to 30 seconds.
@@ -3313,7 +3306,7 @@ pref("svg.transform-box.enabled", true);
 # always enabled in the chrome process, regardless of this pref.)
 # Also, these keywords are currently not part of any spec, which is partly why
 # we disable them for web content.
-pref("svg.context-properties.content.enabled", false);
+pref("svg.context-properties.content.enabled", true);
 
 // Default font types and sizes by locale
 pref("font.default.ar", "sans-serif");
@@ -5178,9 +5171,6 @@ pref("memory.low_memory_notification_interval_ms", 10000);
 // window to be collected via the GC/CC.
 pref("memory.ghost_window_timeout_seconds", 60);
 
-// Disable freeing dirty pages when minimizing memory.
-pref("memory.free_dirty_pages", false);
-
 // Disable the Linux-specific, system-wide memory reporter.
 #ifdef XP_LINUX
 pref("memory.system_memory_reporter", false);
@@ -5191,18 +5181,6 @@ pref("memory.dump_reports_on_oom", false);
 
 // Number of stack frames to capture in createObjectURL for about:memory.
 pref("memory.blob_report.stack_frames", 0);
-
-// comma separated list of domain origins (e.g. https://domain.com) that still
-// need localStorage in the frameworker
-sticky_pref("social.whitelist", "");
-// comma separated list of domain origins (e.g. https://domain.com) for
-// directory websites (e.g. AMO) that can install providers for other sites
-sticky_pref("social.directories", "");
-// remote-install allows any website to activate a provider, with extended UI
-// notifying user of installation. we can later pref off remote install if
-// necessary. This does not affect whitelisted and directory installs.
-sticky_pref("social.remote-install.enabled", false);
-sticky_pref("social.toast-notifications.enabled", false);
 
 // Disable idle observer fuzz, because only privileged content can access idle
 // observers (bug 780507).
@@ -5575,6 +5553,9 @@ pref("browser.search.official", true);
 #endif
 
 // GMPInstallManager prefs
+
+// Whether updates are enabled
+pref("media.gmp-manager.updateEnabled", true);
 
 // User-settable override to media.gmp-manager.url for testing purposes.
 //pref("media.gmp-manager.url.override", "");

@@ -1972,6 +1972,11 @@ nsCSSFrameConstructor::CreateGeneratedContentItem(nsFrameConstructorState& aStat
       CreateGeneratedContent(aState, aParentContent, pseudoStyleContext,
                              contentIndex);
     if (content) {
+      // We don't strictly have to set NODE_IS_IN_NATIVE_ANONYMOUS_SUBTREE
+      // here; it would get set under AppendChildTo.  But AppendChildTo might
+      // think that we're going from not being anonymous to being anonymous and
+      // do some extra work; setting the flag here avoids that.
+      content->SetFlags(NODE_IS_IN_NATIVE_ANONYMOUS_SUBTREE);
       container->AppendChildTo(content, false);
       if (content->IsElement()) {
         createdChildElement = true;
@@ -8661,7 +8666,7 @@ nsCSSFrameConstructor::ContentRemoved(nsIContent*  aContainer,
       return;
     }
 
-    FlattenedChildIterator iter(aChild);
+    StyleChildrenIterator iter(aChild);
     for (nsIContent* c = iter.GetNextChild(); c; c = iter.GetNextChild()) {
       if (c->GetPrimaryFrame() || GetDisplayContentsStyleFor(c)) {
         LAYOUT_PHASE_TEMP_EXIT();

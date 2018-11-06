@@ -164,7 +164,7 @@ class HeaderChanger {
     });
   }
 
-  applyChanges(headers) {
+  applyChanges(headers, opts = {}) {
     if (!this.validateHeaders(headers)) {
       /* globals uneval */
       Cu.reportError(`Invalid header array: ${uneval(headers)}`);
@@ -181,23 +181,54 @@ class HeaderChanger {
       }
     }
 
-    // Set new or changed headers.
+    // Set new or changed headers.  If there are multiple headers with the same
+    // name (e.g. Set-Cookie), merge them, instead of having new values
+    // overwrite previous ones.
+    //
+    // When the new value of a header is equal the existing value of the header
+    // (e.g. the initial response set "Set-Cookie: examplename=examplevalue",
+    // and an extension also added the header
+    // "Set-Cookie: examplename=examplevalue") then the header value is not
+    // re-set, but subsequent headers of the same type will be merged in.
+    let headersAlreadySet = new Set();
     for (let {name, value, binaryValue} of headers) {
       if (binaryValue) {
         value = String.fromCharCode(...binaryValue);
       }
-      let original = this.originalHeaders.get(name.toLowerCase());
+
+      let lowerCaseName = name.toLowerCase();
+      let original = this.originalHeaders.get(lowerCaseName);
+
       if (!original || value !== original.value) {
-        this.setHeader(name, value);
+        let shouldMerge = headersAlreadySet.has(lowerCaseName);
+        this.setHeader(name, value, shouldMerge, opts, lowerCaseName);
       }
+
+      headersAlreadySet.add(lowerCaseName);
     }
   }
 }
 
+const checkRestrictedHeaderValue = (value, opts = {}) => {
+  let uri = Services.io.newURI(`https://${value}/`);
+  let {extension} = opts;
+
+  if (extension && !extension.allowedOrigins.matches(uri)) {
+    throw new Error(`Unable to set host header, url missing from permissions.`);
+  }
+
+  if (WebExtensionPolicy.isRestrictedURI(uri)) {
+    throw new Error(`Unable to set host header to restricted url.`);
+  }
+};
+
 class RequestHeaderChanger extends HeaderChanger {
-  setHeader(name, value) {
+  setHeader(name, value, merge, opts, lowerCaseName) {
     try {
-      this.channel.setRequestHeader(name, value, false);
+      if (value && lowerCaseName === "host") {
+        checkRestrictedHeaderValue(value, opts);
+      }
+      this.channel.setRequestHeader(name, value, merge);
     } catch (e) {
       Cu.reportError(new Error(`Error setting request header ${name}: ${e}`));
     }
@@ -211,7 +242,7 @@ class RequestHeaderChanger extends HeaderChanger {
 }
 
 class ResponseHeaderChanger extends HeaderChanger {
-  setHeader(name, value) {
+  setHeader(name, value, merge, opts, lowerCaseName) {
     try {
       if (name.toLowerCase() === "content-type" && value) {
         // The Content-Type header value can't be modified, so we
@@ -222,7 +253,7 @@ class ResponseHeaderChanger extends HeaderChanger {
 
         getData(this.channel).contentType = value;
       } else {
-        this.channel.setResponseHeader(name, value, false);
+        this.channel.setResponseHeader(name, value, merge);
       }
     } catch (e) {
       Cu.reportError(new Error(`Error setting response header ${name}: ${e}`));
@@ -979,11 +1010,11 @@ HttpObserverManager = {
         }
 
         if (opts.requestHeaders && result.requestHeaders && requestHeaders) {
-          requestHeaders.applyChanges(result.requestHeaders);
+          requestHeaders.applyChanges(result.requestHeaders, opts);
         }
 
         if (opts.responseHeaders && result.responseHeaders && responseHeaders) {
-          responseHeaders.applyChanges(result.responseHeaders);
+          responseHeaders.applyChanges(result.responseHeaders, opts);
         }
 
         if (kind === "authRequired" && opts.blocking && result.authCredentials) {

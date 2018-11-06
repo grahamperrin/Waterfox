@@ -3197,10 +3197,13 @@ protected:
   // The array of all links that need their status resolved.  Links must add themselves
   // to this set by calling RegisterPendingLinkUpdate when added to a document.
   static const size_t kSegmentSize = 128;
-  mozilla::SegmentedVector<nsCOMPtr<mozilla::dom::Link>,
-                           kSegmentSize,
-                           InfallibleAllocPolicy>
-    mLinksToUpdate;
+
+  typedef mozilla::SegmentedVector<nsCOMPtr<mozilla::dom::Link>,
+                                   kSegmentSize,
+                                   InfallibleAllocPolicy>
+    LinksToUpdateList;
+
+  LinksToUpdateList mLinksToUpdate;
 
   // SMIL Animation Controller, lazily-initialized in GetAnimationController
   RefPtr<nsSMILAnimationController> mAnimationController;
@@ -3290,11 +3293,11 @@ protected:
   // file, etc.
   bool mIsSyntheticDocument : 1;
 
-  // True if this document has links whose state needs updating
-  bool mHasLinksToUpdate : 1;
-
   // True is there is a pending runnable which will call FlushPendingLinkUpdates().
   bool mHasLinksToUpdateRunnable : 1;
+
+  // True if we're flushing pending link updates.
+  bool mFlushingPendingLinkUpdates : 1;
 
   // True if a DOMMutationObserver is perhaps attached to a node in the document.
   bool mMayHaveDOMMutationObservers : 1;
@@ -3434,14 +3437,6 @@ protected:
   };
 
   Tri mAllowXULXBL;
-
-#ifdef DEBUG
-  /**
-   * This is true while FlushPendingLinkUpdates executes.  Calls to
-   * [Un]RegisterPendingLinkUpdate will assert when this is true.
-   */
-  bool mIsLinkUpdateRegistrationsForbidden;
-#endif
 
   // The document's script global object, the object from which the
   // document can get its script context and scope. This is the
@@ -3688,13 +3683,29 @@ nsINode::OwnerDocAsNode() const
   return OwnerDoc();
 }
 
+// ShouldUseXBLScope is defined here as a template so that we can get the faster
+// version of IsInAnonymousSubtree if we're statically known to be an
+// nsIContent.  we could try defining ShouldUseXBLScope separately on nsINode
+// and nsIContent, but then we couldn't put its nsINode implementation here
+// (because this header does not include nsIContent) and we can't put it in
+// nsIContent.h, because the definition of nsIContent::IsInAnonymousSubtree is
+// in nsIContentInlines.h.  And then we get include hell from people trying to
+// call nsINode::GetParentObject but not including nsIContentInlines.h and with
+// no really good way to include it.
+template<typename T>
+inline bool ShouldUseXBLScope(const T* aNode)
+{
+  return aNode->IsInAnonymousSubtree() &&
+         !aNode->IsAnonymousContentInSVGUseSubtree();
+}
+
 inline mozilla::dom::ParentObject
 nsINode::GetParentObject() const
 {
   mozilla::dom::ParentObject p(OwnerDoc());
     // Note that mUseXBLScope is a no-op for chrome, and other places where we
     // don't use XBL scopes.
-  p.mUseXBLScope = IsInAnonymousSubtree() && !IsAnonymousContentInSVGUseSubtree();
+  p.mUseXBLScope = ShouldUseXBLScope(this);
   return p;
 }
 

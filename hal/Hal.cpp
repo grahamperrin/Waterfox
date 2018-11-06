@@ -21,10 +21,7 @@
 #include "nsJSUtils.h"
 #include "mozilla/ClearOnShutdown.h"
 #include "mozilla/Observer.h"
-#include "mozilla/Services.h"
-#include "mozilla/StaticPtr.h"
 #include "mozilla/dom/ContentChild.h"
-#include "mozilla/dom/ContentParent.h"
 #include "mozilla/dom/ScreenOrientation.h"
 #include "WindowIdentifier.h"
 
@@ -590,6 +587,7 @@ UnregisterSensorObserver(SensorType aSensor, ISensorObserver *aObserver) {
   AssertMainThread();
 
   if (!gSensorObservers) {
+    HAL_ERR("Un-registering a sensor when none have been registered");
     return;
   }
 
@@ -599,14 +597,29 @@ UnregisterSensorObserver(SensorType aSensor, ISensorObserver *aObserver) {
   }
   DisableSensorNotifications(aSensor);
 
-  // Destroy sSensorObservers only if all observer lists are empty.
   for (int i = 0; i < NUM_SENSOR_TYPE; i++) {
     if (gSensorObservers[i].Length() > 0) {
       return;
     }
   }
-  delete [] gSensorObservers;
+
+  // We want to destroy gSensorObservers if all observer lists are
+  // empty, but we have to defer the deallocation via a runnable to
+  // mainthread (since we may be inside NotifySensorChange()/Broadcast()
+  // when it calls UnregisterSensorObserver()).
+  SensorObserverList* sensorlists = gSensorObservers;
   gSensorObservers = nullptr;
+
+  // Unlike DispatchToMainThread, DispatchToCurrentThread doesn't leak a runnable if
+  // it fails (and we assert we're on MainThread).
+  if (NS_FAILED(NS_DispatchToCurrentThread(NS_NewRunnableFunction("UnregisterSensorObserver",
+                                                                  [sensorlists]() -> void {
+      delete [] sensorlists;
+      }))))
+  {
+    // Still need to delete sensorlists if the dispatch fails
+    delete [] sensorlists;
+  }
 }
 
 void

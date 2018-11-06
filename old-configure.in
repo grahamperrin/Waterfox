@@ -46,7 +46,7 @@ _SUBDIR_CONFIG_ARGS="$ac_configure_args"
 dnl Set the version number of the libs included with mozilla
 dnl ========================================================
 MOZJPEG=62
-MOZPNG=10631
+MOZPNG=10634
 NSPR_VERSION=4
 NSPR_MINVER=4.16
 NSS_VERSION=3
@@ -1927,9 +1927,7 @@ if test -n "$_USE_SYSTEM_NSS"; then
     AM_PATH_NSS(3.32.1, [MOZ_SYSTEM_NSS=1], [AC_MSG_ERROR([you don't have NSS installed or your version is too old])])
 fi
 
-if test -n "$MOZ_SYSTEM_NSS"; then
-   NSS_LIBS="$NSS_LIBS -lcrmf"
-else
+if test -z "$MOZ_SYSTEM_NSS"; then
    NSS_CFLAGS="-I${DIST}/include/nss"
    case "${OS_ARCH}" in
         # Only few platforms have been tested with GYP
@@ -2253,7 +2251,7 @@ dnl ========================================================
 if test -z "$gonkdir" ; then
 case "$MOZ_BUILD_APP" in
 mobile/android)
-    MOZ_ANDROID_SDK(23, 23.0.3 23.0.1, 25.3.2)
+    MOZ_ANDROID_SDK(23, 23, 23.0.3, 25.3.1)
     ;;
 esac
 fi
@@ -4518,6 +4516,9 @@ AC_SUBST_LIST(MOZ_CAIRO_CFLAGS)
 AC_SUBST_LIST(MOZ_CAIRO_LIBS)
 AC_SUBST_LIST(MOZ_CAIRO_OSLIBS)
 AC_SUBST(MOZ_TREE_PIXMAN)
+
+BINDGEN_SYSTEM_FLAGS="$_BINDGEN_CFLAGS $NSPR_CFLAGS $NSS_CFLAGS $MOZ_PIXMAN_CFLAGS $MOZ_CAIRO_CFLAGS"
+AC_SUBST_TOML_LIST(BINDGEN_SYSTEM_FLAGS)
 
 dnl ========================================================
 dnl disable xul
