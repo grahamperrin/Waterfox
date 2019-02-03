@@ -264,6 +264,7 @@ NSS_Init
 NSS_Initialize
 NSS_InitWithMerge
 NSS_IsInitialized
+NSS_OptionGet
 NSS_OptionSet
 NSS_NoDB_Init
 NSS_SecureMemcmp
@@ -714,6 +715,13 @@ VFY_VerifyDataWithAlgorithmID
 VFY_VerifyDigestDirect
 _SGN_VerifyPKCS1DigestInfo
 __PK11_SetCertificateNickname
+# These symbols are not used by Firefox but are used across NSS library boundaries.
+NSS_SecureMemcmpZero
+PORT_ZAllocAlignedOffset_Util
+CERT_FindCertByNicknameOrEmailAddrCX
+SECKEY_GetPrivateKeyType
+SEC_DerSignDataWithAlgorithmID
+SEC_CreateSignatureAlgorithmParameters
 # These symbols are not used by Firefox itself, but are used by Java's security
 # libraries, which in turn are used by Java applets/plugins/etc.  Provide them
 # to make Java code happy.

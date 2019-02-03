@@ -72,6 +72,7 @@ EXPORTS += [
 ]
 
 UNIFIED_SOURCES += [
+    'CDMStorageIdProvider.cpp',
     'ChromiumCDMAdapter.cpp',
     'ChromiumCDMChild.cpp',
     'ChromiumCDMParent.cpp',
@@ -114,6 +115,7 @@ UNIFIED_SOURCES += [
 ]
 
 DIRS += [
+    'rlz',
     'widevine-adapter',
 ]
 
@@ -129,6 +131,9 @@ IPDL_SOURCES += [
   'PGMPVideoDecoder.ipdl',
   'PGMPVideoEncoder.ipdl',
 ]
+
+if CONFIG['OS_TARGET'] in ['WINNT', 'Darwin']:
+    DEFINES['SUPPORT_STORAGE_ID'] = 1;
 
 # comment this out to use Unsafe Shmem for more performance
 DEFINES['GMP_SAFE_SHMEM'] = True

@@ -66,7 +66,6 @@ class TlsAgent : public PollTarget {
   static const std::string kServerRsaSign;
   static const std::string kServerRsaPss;
   static const std::string kServerRsaDecrypt;
-  static const std::string kServerRsaChain;  // A cert that requires a chain.
   static const std::string kServerEcdsa256;
   static const std::string kServerEcdsa384;
   static const std::string kServerEcdsa521;
@@ -95,6 +94,7 @@ class TlsAgent : public PollTarget {
   void StartConnect(PRFileDesc* model = nullptr);
   void CheckKEA(SSLKEAType kea_type, SSLNamedGroup group,
                 size_t kea_size = 0) const;
+  void CheckOriginalKEA(SSLNamedGroup kea_group) const;
   void CheckAuthType(SSLAuthType auth_type,
                      SSLSignatureScheme sig_scheme) const;
 
@@ -121,12 +121,12 @@ class TlsAgent : public PollTarget {
   void SetupClientAuth();
   void RequestClientAuth(bool requireAuth);
 
+  void SetOption(int32_t option, int value);
   void ConfigureSessionCache(SessionResumptionMode mode);
-  void SetSessionTicketsEnabled(bool en);
-  void SetSessionCacheEnabled(bool en);
   void Set0RttEnabled(bool en);
   void SetFallbackSCSVEnabled(bool en);
   void SetShortHeadersEnabled();
+  void SetAltHandshakeTypeEnabled();
   void SetVersionRange(uint16_t minver, uint16_t maxver);
   void GetVersionRange(uint16_t* minver, uint16_t* maxver);
   void CheckPreliminaryInfo();
@@ -156,8 +156,6 @@ class TlsAgent : public PollTarget {
   void EnableExtendedMasterSecret();
   void CheckExtendedMasterSecret(bool expected);
   void CheckEarlyDataAccepted(bool expected);
-  void DisableRollbackDetection();
-  void EnableCompression();
   void SetDowngradeCheckVersion(uint16_t version);
   void CheckSecretsDestroyed();
   void ConfigNamedGroups(const std::vector<SSLNamedGroup>& groups);

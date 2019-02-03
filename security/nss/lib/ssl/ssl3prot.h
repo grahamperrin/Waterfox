@@ -41,7 +41,8 @@ typedef enum {
     content_change_cipher_spec = 20,
     content_alert = 21,
     content_handshake = 22,
-    content_application_data = 23
+    content_application_data = 23,
+    content_alt_handshake = 24
 } SSL3ContentType;
 
 typedef struct {
@@ -150,9 +151,7 @@ typedef struct {
     PRUint8 empty;
 } SSL3HelloRequest;
 
-typedef struct {
-    PRUint8 rand[SSL3_RANDOM_LENGTH];
-} SSL3Random;
+typedef PRUint8 SSL3Random[SSL3_RANDOM_LENGTH];
 
 typedef struct {
     PRUint8 id[32];

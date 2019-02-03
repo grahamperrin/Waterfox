@@ -63,10 +63,6 @@
 #   BUILT_OPT    - use optimized/debug build
 #   USE_64       - use 64bit/32bit build
 #
-# Optional environment variables to enable specific NSS features:
-# ---------------------------------------------------------------
-#   NSS_DISABLE_ECC             - disable ECC
-#
 # Optional environment variables to select which cycles/suites to test:
 # ---------------------------------------------------------------------
 #   NSS_CYCLES     - list of cycles to run (separated by space
@@ -107,6 +103,8 @@
 #
 ########################################################################
 
+RUN_FIPS=""
+
 ############################## run_tests ###############################
 # run test suites defined in TESTS variable, skip scripts defined in
 # TESTS_SKIP variable
@@ -132,14 +130,20 @@ run_tests()
 }
 
 ########################## run_cycle_standard ##########################
-# run test suites with defaults settings (no PKIX, no sharedb)
+# run test suites with dbm database (no PKIX, no sharedb)
 ########################################################################
 run_cycle_standard()
 {
     TEST_MODE=STANDARD
 
     TESTS="${ALL_TESTS}"
-    TESTS_SKIP=
+    TESTS_SKIP="cipher libpkix sdr ocsp pkits"
+
+    NSS_DEFAULT_DB_TYPE="dbm"
+    export NSS_DEFAULT_DB_TYPE
+
+    NSS_SSL_TESTS=`echo "${NSS_SSL_TESTS}" | sed -e "s/normal//g" -e "s/fips//g" -e "s/_//g"`
+    NSS_SSL_RUN=`echo "${NSS_SSL_RUN}" | sed -e "s/cov//g" -e "s/auth//g"`
 
     run_tests
 }
@@ -164,7 +168,12 @@ run_cycle_pkix()
 
     TESTS="${ALL_TESTS}"
     TESTS_SKIP="cipher dbtests sdr crmf smime merge multinit"
+
     NSS_SSL_TESTS=`echo "${NSS_SSL_TESTS}" | sed -e "s/normal//g" -e "s/fips//g" -e "s/_//g"`
+    export -n NSS_SSL_RUN
+
+    # use the default format
+    export -n NSS_DEFAULT_DB_TYPE
 
     run_tests
 }
@@ -187,7 +196,7 @@ run_cycle_upgrade_db()
     init_directories
 
     if [ -r "${OLDHOSTDIR}/cert.log" ]; then
-        DIRS="alicedir bobdir CA cert_extensions client clientCA dave eccurves eve ext_client ext_server fips SDR server serverCA stapling tools/copydir cert.log cert.done tests.*"
+        DIRS="alicedir bobdir CA cert_extensions client clientCA dave eccurves eve ext_client ext_server $RUN_FIPS SDR server serverCA stapling tools/copydir cert.log cert.done tests.*"
         for i in $DIRS
         do
             cp -r ${OLDHOSTDIR}/${i} ${HOSTDIR} #2> /dev/null
@@ -233,10 +242,10 @@ run_cycle_shared_db()
 
     # run the tests for native sharedb support
     TESTS="${ALL_TESTS}"
-    TESTS_SKIP="cipher libpkix dbupgrade sdr ocsp pkits"
+    TESTS_SKIP="dbupgrade"
 
-    NSS_SSL_TESTS=`echo "${NSS_SSL_TESTS}" | sed -e "s/normal//g" -e "s/fips//g" -e "s/_//g"`
-    NSS_SSL_RUN=`echo "${NSS_SSL_RUN}" | sed -e "s/cov//g" -e "s/auth//g"`
+    export -n NSS_SSL_TESTS
+    export -n NSS_SSL_RUN
 
     run_tests
 }
@@ -273,7 +282,12 @@ run_cycles()
 cycles="standard pkix upgradedb sharedb"
 CYCLES=${NSS_CYCLES:-$cycles}
 
-tests="cipher lowhash libpkix cert dbtests tools fips sdr crmf smime ssl ocsp merge pkits ec gtests ssl_gtests"
+if [ -n "$NSS_FORCE_FIPS" ]; then
+    RUN_FIPS="fips"
+    export NSS_TEST_ENABLE_FIPS=1
+fi
+
+tests="cipher lowhash libpkix cert dbtests tools $RUN_FIPS sdr crmf smime ssl ocsp merge pkits ec gtests ssl_gtests"
 # Don't run chains tests when we have a gyp build.
 if [ "$OBJDIR" != "Debug" -a "$OBJDIR" != "Release" ]; then
   tests="$tests chains"
@@ -282,7 +296,10 @@ TESTS=${NSS_TESTS:-$tests}
 
 ALL_TESTS=${TESTS}
 
-nss_ssl_tests="crl fips_normal normal_fips iopr policy"
+nss_ssl_tests="crl iopr policy"
+if [ -n "$NSS_FORCE_FIPS" ]; then
+    nss_ssl_tests="$nss_ssl_tests fips_normal normal_fips"
+fi
 NSS_SSL_TESTS="${NSS_SSL_TESTS:-$nss_ssl_tests}"
 
 nss_ssl_run="cov auth stapling stress"

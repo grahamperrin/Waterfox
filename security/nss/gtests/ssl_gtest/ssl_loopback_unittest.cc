@@ -6,6 +6,7 @@
 
 #include <functional>
 #include <memory>
+#include <vector>
 #include "secerr.h"
 #include "ssl.h"
 #include "sslerr.h"
@@ -102,9 +103,9 @@ TEST_P(TlsConnectGeneric, CaptureAlertServer) {
   auto alert_recorder = std::make_shared<TlsAlertRecorder>();
   server_->SetPacketFilter(alert_recorder);
 
-  ConnectExpectAlert(server_, kTlsAlertIllegalParameter);
+  ConnectExpectAlert(server_, kTlsAlertDecodeError);
   EXPECT_EQ(kTlsAlertFatal, alert_recorder->level());
-  EXPECT_EQ(kTlsAlertIllegalParameter, alert_recorder->description());
+  EXPECT_EQ(kTlsAlertDecodeError, alert_recorder->description());
 }
 
 TEST_P(TlsConnectGenericPre13, CaptureAlertClient) {
@@ -166,24 +167,6 @@ TEST_P(TlsConnectDatagram, ConnectSrtp) {
   SendReceive();
 }
 
-// 1.3 is disabled in the next few tests because we don't
-// presently support resumption in 1.3.
-TEST_P(TlsConnectStreamPre13, ConnectAndClientRenegotiate) {
-  Connect();
-  server_->PrepareForRenegotiate();
-  client_->StartRenegotiate();
-  Handshake();
-  CheckConnected();
-}
-
-TEST_P(TlsConnectStreamPre13, ConnectAndServerRenegotiate) {
-  Connect();
-  client_->PrepareForRenegotiate();
-  server_->StartRenegotiate();
-  Handshake();
-  CheckConnected();
-}
-
 TEST_P(TlsConnectGeneric, ConnectSendReceive) {
   Connect();
   SendReceive();
@@ -224,14 +207,14 @@ TEST_P(TlsConnectStream, ShortRead) {
   ASSERT_EQ(50U, client_->received_bytes());
 }
 
-TEST_P(TlsConnectGeneric, ConnectWithCompressionMaybe) {
+// We enable compression via the API but it's disabled internally,
+// so we should never get it.
+TEST_P(TlsConnectGeneric, ConnectWithCompressionEnabled) {
   EnsureTlsSetup();
-  client_->EnableCompression();
-  server_->EnableCompression();
+  client_->SetOption(SSL_ENABLE_DEFLATE, PR_TRUE);
+  server_->SetOption(SSL_ENABLE_DEFLATE, PR_TRUE);
   Connect();
-  EXPECT_EQ(client_->version() < SSL_LIBRARY_VERSION_TLS_1_3 &&
-                variant_ != ssl_variant_datagram,
-            client_->is_compressed());
+  EXPECT_FALSE(client_->is_compressed());
   SendReceive();
 }
 

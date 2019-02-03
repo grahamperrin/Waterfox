@@ -63,6 +63,11 @@ class TlsRecordHeader : public TlsVersioned {
   uint64_t sequence_number_;
 };
 
+struct TlsRecord {
+  const TlsRecordHeader header;
+  const DataBuffer buffer;
+};
+
 // Abstract filter that operates on entire (D)TLS records.
 class TlsRecordFilter : public PacketFilter {
  public:
@@ -133,6 +138,7 @@ inline std::ostream& operator<<(std::ostream& stream, TlsRecordHeader& hdr) {
       stream << "Alert";
       break;
     case kTlsHandshakeType:
+    case kTlsAltHandshakeType:
       stream << "Handshake";
       break;
     case kTlsApplicationDataType:
@@ -220,6 +226,28 @@ class TlsInspectorReplaceHandshakeMessage : public TlsHandshakeFilter {
   DataBuffer buffer_;
 };
 
+class TlsRecordRecorder : public TlsRecordFilter {
+ public:
+  TlsRecordRecorder(uint8_t ct) : filter_(true), ct_(ct), records_() {}
+  TlsRecordRecorder()
+      : filter_(false),
+        ct_(content_handshake),  // dummy (<optional> is C++14)
+        records_() {}
+  virtual PacketFilter::Action FilterRecord(const TlsRecordHeader& header,
+                                            const DataBuffer& input,
+                                            DataBuffer* output);
+
+  size_t count() const { return records_.size(); }
+  void Clear() { records_.clear(); }
+
+  const TlsRecord& record(size_t i) const { return records_[i]; }
+
+ private:
+  bool filter_;
+  uint8_t ct_;
+  std::vector<TlsRecord> records_;
+};
+
 // Make a copy of the complete conversation.
 class TlsConversationRecorder : public TlsRecordFilter {
  public:
@@ -230,8 +258,24 @@ class TlsConversationRecorder : public TlsRecordFilter {
                                             DataBuffer* output);
 
  private:
-  DataBuffer& buffer_;
+  DataBuffer buffer_;
 };
+
+// Make a copy of the records
+class TlsHeaderRecorder : public TlsRecordFilter {
+ public:
+  virtual PacketFilter::Action FilterRecord(const TlsRecordHeader& header,
+                                            const DataBuffer& input,
+                                            DataBuffer* output);
+  const TlsRecordHeader* header(size_t index);
+
+ private:
+  std::vector<TlsRecordHeader> headers_;
+};
+
+// Runs multiple packet filters in series.
+typedef std::initializer_list<std::shared_ptr<PacketFilter>>
+    ChainedPacketFilterInit;
 
 // Runs multiple packet filters in series.
 class ChainedPacketFilter : public PacketFilter {
@@ -239,6 +283,7 @@ class ChainedPacketFilter : public PacketFilter {
   ChainedPacketFilter() {}
   ChainedPacketFilter(const std::vector<std::shared_ptr<PacketFilter>> filters)
       : filters_(filters.begin(), filters.end()) {}
+  ChainedPacketFilter(ChainedPacketFilterInit il) : filters_(il) {}
   virtual ~ChainedPacketFilter() {}
 
   virtual PacketFilter::Action Filter(const DataBuffer& input,

@@ -1,3 +1,4 @@
+/* -*- Mode: C; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 4 -*- */
 /*
  * Gather (Read) entire SSL3 records from socket into buffer.
  *
@@ -394,7 +395,8 @@ ssl3_GatherCompleteHandshake(sslSocket *ss, int flags)
     SSL3Ciphertext cText;
     PRBool keepGoing = PR_TRUE;
 
-    SSL_TRC(30, ("ssl3_GatherCompleteHandshake"));
+    SSL_TRC(30, ("%d: SSL3[%d]: ssl3_GatherCompleteHandshake",
+                 SSL_GETPID(), ss->fd));
 
     /* ssl3_HandleRecord may end up eventually calling ssl_FinishHandshake,
      * which requires the 1stHandshakeLock, which must be acquired before the
@@ -405,8 +407,11 @@ ssl3_GatherCompleteHandshake(sslSocket *ss, int flags)
 
     do {
         PRBool handleRecordNow = PR_FALSE;
+        PRBool processingEarlyData;
 
         ssl_GetSSL3HandshakeLock(ss);
+
+        processingEarlyData = ss->ssl3.hs.zeroRttState == ssl_0rtt_accepted;
 
         /* Without this, we may end up wrongly reporting
          * SSL_ERROR_RX_UNEXPECTED_* errors if we receive any records from the
@@ -504,7 +509,6 @@ ssl3_GatherCompleteHandshake(sslSocket *ss, int flags)
                 if (IS_DTLS(ss)) {
                     sslSequenceNumber seq_num;
 
-                    cText.version = dtls_DTLSVersionToTLSVersion(cText.version);
                     /* DTLS sequence number */
                     PORT_Memcpy(&seq_num, &ss->gs.hdr[3], sizeof(seq_num));
                     cText.seq_num = PR_ntohll(seq_num);
@@ -555,6 +559,15 @@ ssl3_GatherCompleteHandshake(sslSocket *ss, int flags)
             } else {
                 ss->ssl3.hs.canFalseStart = PR_FALSE;
             }
+        } else if (processingEarlyData &&
+                   ss->ssl3.hs.zeroRttState == ssl_0rtt_done &&
+                   !PR_CLIST_IS_EMPTY(&ss->ssl3.hs.bufferedEarlyData)) {
+            /* If we were processing early data and we are no longer, then force
+             * the handshake to block.  This ensures that early data is
+             * delivered to the application before the handshake completes. */
+            ssl_ReleaseSSL3HandshakeLock(ss);
+            PORT_SetError(PR_WOULD_BLOCK_ERROR);
+            return SECWouldBlock;
         }
         ssl_ReleaseSSL3HandshakeLock(ss);
     } while (keepGoing);
