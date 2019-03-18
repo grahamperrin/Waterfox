@@ -23,7 +23,7 @@
 //! [cssparser]: ../cssparser/index.html
 //! [selectors]: ../selectors/index.html
 
-#![deny(missing_docs)]
+// #![deny(missing_docs)]
 
 // FIXME(bholley): We need to blanket-allow unsafe code in order to make the
 // gecko atom!() macro work. When Rust 1.14 is released [1], we can uncomment
@@ -158,7 +158,7 @@ use style_traits::ToCss;
 /// Generated from the properties.mako.rs template by build.rs
 #[macro_use]
 #[allow(unsafe_code)]
-#[deny(missing_docs)]
+// #[deny(missing_docs)]
 pub mod properties {
     include!(concat!(env!("OUT_DIR"), "/properties.rs"));
 }
