@@ -1,30 +1,24 @@
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
- * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 //! A type to represent a namespace.
 
-use crate::gecko_bindings::structs::nsAtom;
-use crate::string_cache::{Atom, WeakAtom};
+use gecko_bindings::structs::nsIAtom;
 use precomputed_hash::PrecomputedHash;
 use std::borrow::Borrow;
 use std::fmt;
 use std::ops::Deref;
+use string_cache::{Atom, WeakAtom};
 
-/// In Gecko namespaces are just regular atoms, so this is a simple macro to
-/// forward one macro to the other.
 #[macro_export]
 macro_rules! ns {
-    () => {
-        $crate::string_cache::Namespace(atom!(""))
-    };
-    ($s:tt) => {
-        $crate::string_cache::Namespace(atom!($s))
-    };
+    () => { $crate::string_cache::Namespace(atom!("")) };
+    ($s: tt) => { $crate::string_cache::Namespace(atom!($s)) };
 }
 
 /// A Gecko namespace is just a wrapped atom.
-#[derive(Clone, Debug, Default, Eq, Hash, MallocSizeOf, PartialEq)]
+#[derive(Debug, PartialEq, Eq, Clone, Default, Hash)]
 pub struct Namespace(pub Atom);
 
 impl PrecomputedHash for Namespace {
@@ -47,13 +41,16 @@ impl Deref for WeakNamespace {
     }
 }
 
+
 impl Deref for Namespace {
     type Target = WeakNamespace;
 
     #[inline]
     fn deref(&self) -> &WeakNamespace {
         let weak: *const WeakAtom = &*self.0;
-        unsafe { &*(weak as *const WeakNamespace) }
+        unsafe {
+            &*(weak as *const WeakNamespace)
+        }
     }
 }
 
@@ -79,7 +76,7 @@ impl Borrow<WeakNamespace> for Namespace {
 impl WeakNamespace {
     /// Trivially construct a WeakNamespace.
     #[inline]
-    pub unsafe fn new<'a>(atom: *mut nsAtom) -> &'a Self {
+    pub unsafe fn new<'a>(atom: *mut nsIAtom) -> &'a Self {
         &*(atom as *const WeakNamespace)
     }
 
